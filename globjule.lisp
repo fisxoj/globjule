@@ -88,10 +88,10 @@
     array))
 
 (defun index-array (object)
-  (let ((array (gl:alloc-gl-array :unsigned-short (* 3 (length (object-vertices object)))))
-	(number-of-vertices (length (object-vertices object)))
+  (let ((array (gl:alloc-gl-array :unsigned-short (* 3 (length (object-faces object)))))
+	(number-of-faces (length (object-faces object)))
 	(indices (object-faces object)))
-    (dotimes (i number-of-vertices)
+    (dotimes (i number-of-faces)
       (setf (gl:glaref array (* i 3)) (aref (aref indices i) 0 0)
 	    (gl:glaref array (+ (* i 3) 1)) (aref (aref indices i) 1 0)
 	    (gl:glaref array (+ (* i 3) 2)) (aref (aref indices i) 2 0)))
