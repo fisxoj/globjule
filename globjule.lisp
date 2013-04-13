@@ -4,9 +4,13 @@
 
 (defstruct object
   (vertices (make-array 0 :adjustable t :fill-pointer 0))
+  (n-vertices 0)
   (texture-vertices (make-array 0 :adjustable t :fill-pointer 0))
+  (n-texture-vertices 0)
   (normals (make-array 0 :adjustable t :fill-pointer 0))
-  (faces (make-array 0 :adjustable t :fill-pointer 0)))
+  (n-normals 0)
+  (faces (make-array 0 :adjustable t :fill-pointer 0))
+  (n-faces 0))
 
 (defun make-vec (n)
   (make-array n :element-type 'single-float))
@@ -31,27 +35,34 @@
 	  do (push c head)))
 
 (defun read-file (pathname)
+  (declare (optimize speed space))
   (with-open-file (stream pathname)
     (loop
 	  with object = (make-object)
 	  while (peek-char nil stream nil nil)
 	  do (case (intern (string-upcase (read-string-token stream)) :keyword)
 	       (:v (let ((vec (make-vec 3)))
+		     (declare (type (simple-array single-float (3)) vec))
 		     (setf (aref vec 0) (read stream)
 			   (aref vec 1) (read stream)
 			   (aref vec 2) (read stream))
-		     (vector-push-extend vec (object-vertices object))))
+		     (vector-push-extend vec (object-vertices object))
+		     (incf (object-n-vertices object))))
 
 	       (:vt (let ((vec (make-vec 2)))
+		      (declare (type (simple-array single-float (2)) vec))
 		     (setf (aref vec 0) (read stream)
 			   (aref vec 1) (read stream))
-		     (vector-push-extend vec (object-texture-vertices object))))
+		     (vector-push-extend vec (object-texture-vertices object))
+		     (incf (object-n-texture-vertices object))))
 
 	       (:vn (let ((vec (make-vec 3)))
+		      (declare (type (simple-array single-float (3)) vec))
 		     (setf (aref vec 0) (read stream)
 			   (aref vec 1) (read stream)
 			   (aref vec 2) (read stream))
-		     (vector-push-extend vec (object-normals object))))
+		     (vector-push-extend vec (object-normals object))
+		     (incf (object-n-normals object))))
 
 	       (:f (let ((vec (make-array '(3 3) :element-type 'integer)))
 			 (dotimes (i 3)
@@ -59,40 +70,16 @@
 			   ;; 0-indexed arrays so we don't need to think about
 			   ;; array indices anymore.
 			   (setf (aref vec i 0)
-				 (1- (read-from-string (read-until stream #\/)))
+				 (1- (the fixnum (read-from-string (read-until stream #\/))))
 				 (aref vec i 1)
-				 (1- (read-from-string (read-until stream #\/)))
+				 (1- (the fixnum (read-from-string (read-until stream #\/) nil 1)))
 				 (aref vec i 2)
-				 (1- (read-from-string (read-until stream #\Space)))))
-			 (vector-push-extend vec (object-faces object))))
+				 (1- (the fixnum (read-from-string (read-until stream #\Space) nil 1)))))
+			 (vector-push-extend vec (object-faces object))
+			 (incf (object-n-faces object))))
 	       (:s (warn "s not implemented") (read-line stream nil nil))
 	       (:usemtl (warn "usemtl not implemented") (read-line stream nil nil))
 	       (:mtllib (warn "mtllib not implemented") (read-line stream nil nil))
 	       (t (read-line stream nil nil)))
 	  finally (return object))))
 
-
-;;; Preparing OpenGL arrays
-
-(gl:define-gl-array-format vertices
-  (gl:vertex :type :float :components (x y z)))
-
-(defun vertex-array (object)
-  (let ((array (gl:alloc-gl-array 'vertices (length (object-vertices object))))
-	(number-of-vertices (length (object-vertices object)))
-	(vertices (object-vertices object)))
-    (dotimes (i number-of-vertices)
-      (setf (gl:glaref array i 'x) (aref (aref vertices i) 0)
-	    (gl:glaref array i 'y) (aref (aref vertices i) 1)
-	    (gl:glaref array i 'z) (aref (aref vertices i) 2)))
-    array))
-
-(defun index-array (object)
-  (let ((array (gl:alloc-gl-array :unsigned-short (* 3 (length (object-faces object)))))
-	(number-of-faces (length (object-faces object)))
-	(indices (object-faces object)))
-    (dotimes (i number-of-faces)
-      (setf (gl:glaref array (* i 3)) (aref (aref indices i) 0 0)
-	    (gl:glaref array (+ (* i 3) 1)) (aref (aref indices i) 1 0)
-	    (gl:glaref array (+ (* i 3) 2)) (aref (aref indices i) 2 0)))
-    array))

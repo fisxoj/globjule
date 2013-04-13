@@ -1,7 +1,7 @@
-(defpackage #:globjule-example
+ (defpackage #:globjule-example
   (:use :cl))
 
-(dolist (i '(globjule cl-glut cl-opengl))
+(dolist (i '(globjule cl-glu cl-glut cl-opengl))
   (require i))
 
 (in-package #:globjule-example)
@@ -14,18 +14,19 @@
   (:default-initargs :width 400
 		     :height 400
 		     :title "Globjule Example"
-		     :mode '(:single :Rgb)))
+		     :mode '(:single :rgb)))
 
 (export 'example)
 (defun example ()
   (glut:display-window (make-instance 'globjule-example-window)))
 
 (defmethod glut:display-window :before ((window globjule-example-window))
-  (let ((object (globjule:read-file (merge-pathnames "example/example1.obj"
-						     (asdf:system-source-directory (asdf:find-system :globjule))))))
+  (let ((encoder (globjule:make-new-encoder
+		  (globjule:read-file (merge-pathnames "example/example1.obj"
+						       (asdf:system-source-directory (asdf:find-system :globjule)))))))
 
-    (setf (vertex-array window) (globjule:vertex-array object)
-	  (index-array window) (globjule:index-array object)))
+    (setf (vertex-array window)  (globjule:vertex-array encoder)
+	  (index-array window)  (globjule:index-array encoder)))
 
   (gl:clear-color 0 0 0 0)
   (gl:shade-model :flat))
@@ -56,3 +57,5 @@
     (gl:free-gl-array (vertex-array window)))
   (when (index-array window)
     (gl:free-gl-array (index-array window))))
+
+(example)

@@ -6,6 +6,7 @@
   :author "Matt Novenstern <fisxoj@gmail.com>"
   :license "MIT"
   :components ((:file "package")
-               (:file "globjule"))
+               (:file "globjule")
+	       (:file "export"))
   :depends-on (#:cl-opengl))
 
