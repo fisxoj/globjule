@@ -4,7 +4,7 @@
 
 (defstruct encoder
   (object)
-  ;(array-entries nil)
+  (material)
   (used-entries nil)
   (indices nil)
   (n-entries 0)
@@ -21,13 +21,6 @@
 (defun make-new-encoder (object)
   (declare (optimize speed space))
   (let ((encoder (make-encoder :object object
-			       #|
-			       :array-entries (make-array (list (object-n-vertices object)
-								(object-n-texture-vertices object)
-								(object-n-faces object))
-							  :element-type 'integer
-							  :initial-element -1)
-			       |#
 			       :used-entries (make-array 0 :adjustable t :fill-pointer 0 :element-type 'cons)
 			       :indices (make-array 0 :adjustable t :fill-pointer 0))))
 
@@ -63,7 +56,7 @@
 			  (= (aref entry 2)
 			     (aref v-t-n 2)))))))
 
-(defun vertex-texture-normal-array (encoder)
+(defun gl-vertex-texture-normal-array (encoder)
   (declare (optimize speed space))
   (declare (type encoder encoder))
   (let ((array (gl:alloc-gl-array 'vertex-texture-normal (encoder-n-entries encoder)))
@@ -88,7 +81,7 @@
 
     array))
 
-(defun vertex-array (encoder)
+(defun gl-vertex-array (encoder)
   (declare (type encoder encoder))
   (let ((array (gl:alloc-gl-array 'vertex-texture-normal (encoder-n-entries encoder)))
 	(number-of-faces (encoder-n-entries encoder)))
@@ -103,7 +96,26 @@
     
     array))
 
-(defun index-array (encoder)
+(defun vertex-array (encoder)
+  (declare (type encoder encoder))
+  (let ((array (make-array (encoder-n-entries encoder) 
+			   :element-type '(simple-array single-float (3))
+			   :initial-element (make-array 3 
+							:element-type 'single-float)))
+	(number-of-faces (encoder-n-entries encoder)))
+
+    (dotimes (i number-of-faces)
+      (let* ((entry (cdr (aref (encoder-used-entries encoder) i)))
+	     (object (encoder-object encoder))
+	     (vertex (aref (object-vertices object) (aref entry 0)))
+	     (triangle (aref array i)))
+	(setf (aref triangle 0) (aref vertex 0)
+	      (aref triangle 1) (aref vertex 1)
+	      (aref triangle 2) (aref vertex 2))))
+    
+    array))
+
+(defun gl-index-array (encoder)
   (declare (optimize speed space))
   (let ((array (gl:alloc-gl-array :unsigned-short (encoder-n-indices encoder)))
 	(number-of-indices (encoder-n-indices encoder))

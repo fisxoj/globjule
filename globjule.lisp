@@ -2,84 +2,56 @@
 
 (in-package #:globjule)
 
-(defstruct object
-  (vertices (make-array 0 :adjustable t :fill-pointer 0))
-  (n-vertices 0)
-  (texture-vertices (make-array 0 :adjustable t :fill-pointer 0))
-  (n-texture-vertices 0)
-  (normals (make-array 0 :adjustable t :fill-pointer 0))
-  (n-normals 0)
-  (faces (make-array 0 :adjustable t :fill-pointer 0))
-  (n-faces 0))
+(defclass globjule ()
+  ((vertex-array :accessor globjule-vertex-array
+		 :initarg :vertex-array)
+   (index-array :accessor globjule-index-array
+		:initarg :index-array)
+   (shaded :type boolean
+	   :accessor globjule-shaded
+	   :initarg :shaded)
+   (ns :type single-float
+       :accessor globjule-ns
+       :initarg :ns)
+   (ka :type (simple-array single-float (3))
+       :accessor globjule-ka
+       :initarg :ka)
+   (kd :type (simple-array single-float (3))
+       :accessor globjule-kd
+       :initarg :kd)
+   (ks :type (simple-array single-float (3))
+       :accessor globjule-ks
+       :initarg :ks)
+   (ni :type single-float
+       :accessor globjule-ni
+       :initarg :ni)
+   (map-kd :type integer
+	   :accessor globjule-map-kd
+	   :initarg :map-kd)))
 
-(defun make-vec (n)
-  (make-array n :element-type 'single-float))
+(defun load-globjule-from-file (filespec object)
+  (let ((file (read-file filespec)))
+    (load-globjule file object)))
 
+(defun load-globjule (file obj)
+  (let* ((object   (get-object file obj))
+	 (encoder  (make-new-encoder object))
+	 (material (get-material file (object-material object)))
+	 (glob     (make-instance 'globjule
+				  :vertex-array (gl-vertex-texture-normal-array encoder)
+				  :index-array (gl-index-array encoder)
+				  :shaded (object-shaded object))))
+    (when material
+      (with-slots (ns ka kd ks ni map-kd) material
+	(setf ns     (material-ns material)
+	      ka     (material-ka material)
+	      kd     (material-kd material)
+	      ks     (material-ks material)
+	      ni     (material-ni material)
+	      map-kd (material-map-kd material))))
+    glob))
 
-;;; File reading
-
-(defun read-string-token (stream)
-  (read-until stream #\Space))
-
-(defun read-token (stream)
-  (read (read-string-token stream)))
-
-(defun read-until (stream character)
-  (when (typep stream 'string)
-    (setf stream (make-string-input-stream stream)))
-  (loop with head
-	for c = (read-char stream nil nil)
-	if (or (not c) (char= c character) (char= c #\Newline))
-	  do (return (coerce (reverse head) 'string))
-	else
-	  do (push c head)))
-
-(defun read-file (pathname)
-  (declare (optimize speed space))
-  (with-open-file (stream pathname)
-    (loop
-	  with object = (make-object)
-	  while (peek-char nil stream nil nil)
-	  do (case (intern (string-upcase (read-string-token stream)) :keyword)
-	       (:v (let ((vec (make-vec 3)))
-		     (declare (type (simple-array single-float (3)) vec))
-		     (setf (aref vec 0) (read stream)
-			   (aref vec 1) (read stream)
-			   (aref vec 2) (read stream))
-		     (vector-push-extend vec (object-vertices object))
-		     (incf (object-n-vertices object))))
-
-	       (:vt (let ((vec (make-vec 2)))
-		      (declare (type (simple-array single-float (2)) vec))
-		     (setf (aref vec 0) (read stream)
-			   (aref vec 1) (read stream))
-		     (vector-push-extend vec (object-texture-vertices object))
-		     (incf (object-n-texture-vertices object))))
-
-	       (:vn (let ((vec (make-vec 3)))
-		      (declare (type (simple-array single-float (3)) vec))
-		     (setf (aref vec 0) (read stream)
-			   (aref vec 1) (read stream)
-			   (aref vec 2) (read stream))
-		     (vector-push-extend vec (object-normals object))
-		     (incf (object-n-normals object))))
-
-	       (:f (let ((vec (make-array '(3 3) :element-type 'integer)))
-			 (dotimes (i 3)
-			   ;; 1- converts from obj file 1-indexed arrays to
-			   ;; 0-indexed arrays so we don't need to think about
-			   ;; array indices anymore.
-			   (setf (aref vec i 0)
-				 (1- (the fixnum (read-from-string (read-until stream #\/))))
-				 (aref vec i 1)
-				 (1- (the fixnum (read-from-string (read-until stream #\/) nil 1)))
-				 (aref vec i 2)
-				 (1- (the fixnum (read-from-string (read-until stream #\Space) nil 1)))))
-			 (vector-push-extend vec (object-faces object))
-			 (incf (object-n-faces object))))
-	       (:s (warn "s not implemented") (read-line stream nil nil))
-	       (:usemtl (warn "usemtl not implemented") (read-line stream nil nil))
-	       (:mtllib (warn "mtllib not implemented") (read-line stream nil nil))
-	       (t (read-line stream nil nil)))
-	  finally (return object))))
-
+(defun object-vertex-array (file object)
+  (let* ((object (get-object file object))
+	 (encoder (make-new-encoder object)))
+    (vertex-array encoder)))

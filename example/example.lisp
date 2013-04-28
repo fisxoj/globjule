@@ -1,4 +1,4 @@
- (defpackage #:globjule-example
+(defpackage #:globjule-example
   (:use :cl))
 
 (dolist (i '(globjule cl-glu cl-glut cl-opengl))
@@ -21,12 +21,13 @@
   (glut:display-window (make-instance 'globjule-example-window)))
 
 (defmethod glut:display-window :before ((window globjule-example-window))
-  (let ((encoder (globjule:make-new-encoder
-		  (globjule:read-file (merge-pathnames "example/example1.obj"
-						       (asdf:system-source-directory (asdf:find-system :globjule)))))))
+  (let ((glob (globjule:load-globjule
+	       (globjule:read-file (merge-pathnames "example/example1.obj"
+						    (asdf:system-source-directory (asdf:find-system :globjule))))
+	       "example1")))
 
-    (setf (vertex-array window)  (globjule:vertex-array encoder)
-	  (index-array window)  (globjule:index-array encoder)))
+    (setf (vertex-array window)  (globjule:globjule-vertex-array glob)
+	  (index-array window)   (globjule:globjule-index-array glob)))
 
   (gl:clear-color 0 0 0 0)
   (gl:shade-model :flat))
