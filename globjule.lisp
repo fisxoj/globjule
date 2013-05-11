@@ -27,7 +27,8 @@
        :initarg :ni)
    (map-kd :type integer
 	   :accessor globjule-map-kd
-	   :initarg :map-kd)))
+	   :initarg :map-kd
+	   :initform nil)))
 
 (defun load-globjule-from-file (filespec object)
   (let ((file (read-file filespec)))
@@ -35,14 +36,15 @@
 
 (defun load-globjule (file obj)
   (let* ((object   (get-object file obj))
-	 (encoder  (make-new-encoder object))
+	 (encoder  (make-new-encoder file object))
 	 (material (get-material file (object-material object)))
 	 (glob     (make-instance 'globjule
 				  :vertex-array (gl-vertex-texture-normal-array encoder)
 				  :index-array (gl-index-array encoder)
 				  :shaded (object-shaded object))))
+;    (error "load-globjule ~a ~a ~a" object material glob)
     (when material
-      (with-slots (ns ka kd ks ni map-kd) material
+      (with-slots (ns ka kd ks ni map-kd) glob
 	(setf ns     (material-ns material)
 	      ka     (material-ka material)
 	      kd     (material-kd material)
@@ -52,6 +54,11 @@
     glob))
 
 (defun object-vertex-array (file object)
-  (let* ((object (get-object file object))
-	 (encoder (make-new-encoder object)))
+  (let* ((object  (get-object file object))
+	 (encoder (make-new-encoder file object)))
     (vertex-array encoder)))
+
+(defun glob-triangle-array (file object)
+  (let* ((object  (get-object file object))
+	 (encoder (make-new-encoder file object)))
+    (triangle-array encoder)))

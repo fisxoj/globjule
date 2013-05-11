@@ -8,9 +8,8 @@
   :components ((:file "package")
 	       (:file "utils")
 	       (:file "mtl")
-	       (:file "object")
 	       (:file "file")
 	       (:file "export")
                (:file "globjule"))
-  :depends-on (#:cl-opengl #:cl-tga))
+  :depends-on (#:cl-opengl #:cl-tga #:png-read))
 

@@ -9,6 +9,8 @@
 	   #:gl-vertex-texture-normal-array
 	   #:veretx-array
 
+	   #:globjule
+
 	   #:globjule-index-array
 	   #:globjule-vertex-array
 	   #:globjule-shaded

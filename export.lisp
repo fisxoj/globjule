@@ -1,10 +1,13 @@
 (in-package #:globjule)
 
+(declaim (optimize debug))
+
 ;;; Preparing OpenGL arrays
 
 (defstruct encoder
-  (object)
-  (material)
+  (object nil :type (or null object))
+  (file nil :type (or null file))
+  (material nil :type (or null material))
   (used-entries nil)
   (indices nil)
   (n-entries 0)
@@ -18,9 +21,9 @@
   (gl:tex-coord :type :float :components (u v))
   (gl:normal :type :float :components (nx ny nz)))
 
-(defun make-new-encoder (object)
-  (declare (optimize speed space))
+(defun make-new-encoder (file object)
   (let ((encoder (make-encoder :object object
+			       :file file
 			       :used-entries (make-array 0 :adjustable t :fill-pointer 0 :element-type 'cons)
 			       :indices (make-array 0 :adjustable t :fill-pointer 0))))
 
@@ -34,7 +37,6 @@
     encoder))
 
 (defun ref-vertex-entry-maybe-create (encoder v-t-n)
-  (declare (optimize speed space))
   (or (find-entry encoder v-t-n)
       (progn
 	  ;; Add coordinates to list of used coordinates
@@ -43,8 +45,7 @@
 	  (1- (incf (encoder-n-entries encoder))))))
 
 (defun find-entry (encoder v-t-n)
-  (declare (optimize speed space)
-	   (type (simple-array integer (3)) v-t-n))
+  (declare (type (simple-array integer (3)) v-t-n))
   (car (find v-t-n (the vector (encoder-used-entries encoder))
 	     :key #'cdr
 	     :test (lambda (entry v-t-n)
@@ -57,17 +58,18 @@
 			     (aref v-t-n 2)))))))
 
 (defun gl-vertex-texture-normal-array (encoder)
-  (declare (optimize speed space))
   (declare (type encoder encoder))
   (let ((array (gl:alloc-gl-array 'vertex-texture-normal (encoder-n-entries encoder)))
 	(number-of-entries (encoder-n-entries encoder)))
 
     (dotimes (i number-of-entries)
-      (let* ((entry (cdr (aref (encoder-used-entries encoder) i)))
-	     (object (encoder-object encoder))
-	     (vertex (aref (object-vertices object) (aref entry 0)))
-	     (uv (aref (object-texture-vertices object) (aref entry 1)))
-	     (normal (aref (object-normals object) (aref entry 2))))
+
+      (let* ((entry  (cdr (aref (encoder-used-entries encoder) i)))
+	     (file   (encoder-file encoder))
+	     (vertex (aref (file-vertices file) (aref entry 0)))
+	     (uv     (aref (file-texture-vertices file) (aref entry 1)))
+	     (normal (aref (file-normals file) (aref entry 2))))
+
 	(setf (gl:glaref array i 'x) (aref vertex 0)
 	      (gl:glaref array i 'y) (aref vertex 1)
 	      (gl:glaref array i 'z) (aref vertex 2)
@@ -88,8 +90,8 @@
 
     (dotimes (i number-of-faces)
       (let* ((entry (cdr (aref (encoder-used-entries encoder) i)))
-	     (object (encoder-object encoder))
-	     (vertex (aref (object-vertices object) (aref entry 0))))
+	     (file (encoder-file encoder))
+	     (vertex (aref (file-vertices file) (aref entry 0))))
 	(setf (gl:glaref array i 'x) (aref vertex 0)
 	      (gl:glaref array i 'y) (aref vertex 1)
 	      (gl:glaref array i 'z) (aref vertex 2))))
@@ -106,17 +108,38 @@
 
     (dotimes (i number-of-faces)
       (let* ((entry (cdr (aref (encoder-used-entries encoder) i)))
-	     (object (encoder-object encoder))
-	     (vertex (aref (object-vertices object) (aref entry 0)))
-	     (triangle (aref array i)))
-	(setf (aref triangle 0) (aref vertex 0)
-	      (aref triangle 1) (aref vertex 1)
-	      (aref triangle 2) (aref vertex 2))))
+	     (file (encoder-file encoder))
+	     (vertex (aref (file-vertices file) (aref entry 0))))
+	(setf (aref array i) vertex)))
     
     array))
 
+(defun triangle-array (encoder)
+  (declare (type encoder encoder))
+  (let ((array (make-array (/ (encoder-n-entries encoder) 3) 
+			   :element-type '(simple-array (simple-array single-float (3)) (3))
+			   :initial-element (make-array 3 
+							:element-type '(simple-array single-float (3))
+							:initial-element (make-array 3 
+										     :element-type 'single-float))))
+	(number-of-faces (encoder-n-entries encoder)))
+
+    (dotimes (i (floor number-of-faces 3))
+      (setf (aref array i) (make-array 3 
+				       :element-type '(simple-array single-float (3))
+				       :initial-element (make-array 3 
+								    :element-type 'single-float))))
+
+    (dotimes (i number-of-faces)
+      (let* ((entry (cdr (aref (encoder-used-entries encoder) i)))
+	     (file (encoder-file encoder))
+	     (vertex (aref (file-vertices file) (aref entry 0))))
+	(multiple-value-bind (triangle vert) (floor i 3)
+	  (setf (aref (aref array triangle) vert) vertex))))
+    array))
+
 (defun gl-index-array (encoder)
-  (declare (optimize speed space))
+  (declare (type encoder encoder))
   (let ((array (gl:alloc-gl-array :unsigned-short (encoder-n-indices encoder)))
 	(number-of-indices (encoder-n-indices encoder))
 	(indices (encoder-indices encoder)))

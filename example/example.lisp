@@ -8,9 +8,8 @@
 
 (defclass globjule-example-window (glut:window)
   ((object :accessor object)
-   (vertex-array :accessor vertex-array
-		 :initform nil)
-   (index-array :accessor index-array))
+   (glob :accessor window-glob
+	 :initform nil))
   (:default-initargs :width 400
 		     :height 400
 		     :title "Globjule Example"
@@ -26,11 +25,12 @@
 						    (asdf:system-source-directory (asdf:find-system :globjule))))
 	       "example1")))
 
-    (setf (vertex-array window)  (globjule:globjule-vertex-array glob)
-	  (index-array window)   (globjule:globjule-index-array glob)))
+    (setf (window-glob window) glob)
 
-  (gl:clear-color 0 0 0 0)
-  (gl:shade-model :flat))
+    (gl:clear-color 0 0 0 0)
+    (gl:shade-model (if (globjule:globjule-shaded glob)
+			:shaded
+			:flat))))
 
 (defmethod glut:display ((window globjule-example-window))
   (gl:clear :color-buffer)
@@ -40,9 +40,10 @@
   (gl:color 1 1 1)
   (gl:with-pushed-matrix
     (gl:rotate 30 1 1 0)
-    (when (vertex-array window)
-      (gl:bind-gl-vertex-array (vertex-array window))
-      (gl:draw-elements :triangles (index-array window))))
+    (let ((glob (window-glob window)))
+      (when glob
+	(gl:bind-gl-vertex-array (globjule:globjule-vertex-array glob))
+	(gl:draw-elements :triangles (globjule:globjule-index-array glob)))))
   (gl:disable-client-state :vertex-array)
   (gl:flush))
 
@@ -54,9 +55,11 @@
   (gl:matrix-mode :modelview))
 
 (defmethod glut:close ((window globjule-example-window))
-  (when (vertex-array window)
-    (gl:free-gl-array (vertex-array window)))
-  (when (index-array window)
-    (gl:free-gl-array (index-array window))))
+  (let ((glob (window-glob window)))
+    (when glob
+      (when (globjule:globjule-vertex-array glob)
+	(gl:free-gl-array (globjule:globjule-vertex-array glob)))
+      (when (globjule:globjule-index-array glob)
+	(gl:free-gl-array (globjule:globjule-index-array glob))))))
 
 (example)

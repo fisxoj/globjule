@@ -12,15 +12,18 @@
   map-kd 
   map-ks)
 
-(defun read-mtl (pathname)
+(defun read-mtl (pathname materials-hash-table)
+  (declare (optimize space speed))
   (with-open-file (stream pathname)
     (loop with material = (make-material)
-	  with name of-type string
 	  while (peek-char nil stream nil nil)
 	  do (case (intern (string-upcase (read-string-token stream)) :keyword)
+	       
+	       (:|#| (read-line stream))
 	       (:newmtl
-		(setf name
-		      (read-line stream)))
+		(setf material (make-material)
+		      (gethash (string-upcase (read-line stream)) materials-hash-table)
+		      material))
 	       (:ns
 		(setf (material-ns material)
 		      (read-line stream)))
@@ -47,11 +50,14 @@
 			(2 :full))))
 	       (:map_ka
 		(setf (material-map-ka material)
-		      (load-image pathname (read-line))))
+		      (load-texture pathname (read-line stream))))
 	       (:map_kd
 		(setf (material-map-kd material)
-		      (load-image pathname (read-line))))
+		      (load-texture pathname (read-line stream))))
 	       (:map_ks
 		(setf (material-map-ka material)
-		      (load-image pathname (read-line)))))
-	  finally (return (values name material)))))
+		      (load-texture pathname (read-line stream))))
+	       (t 
+		;; FIXME: Currently catches spurious newlines, should probbly fix
+		;; this by using the read functions better
+		)))))
