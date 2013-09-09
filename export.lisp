@@ -116,7 +116,7 @@
 
 (defun triangle-array (encoder)
   (declare (type encoder encoder))
-  (let ((array (make-array (/ (encoder-n-entries encoder) 3) 
+  (let ((array (make-array (/ (encoder-n-indices encoder) 3) 
 			   :element-type '(simple-array (simple-array single-float (3)) (3))
 			   :initial-element (make-array 3 
 							:element-type '(simple-array single-float (3))
